@@ -1,0 +1,58 @@
+name: Build WeMet APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          path: user_repo
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Scaffold Clean Flutter App
+        run: |
+          # Create official Flutter Android scaffold
+          flutter create --org com.example --project-name wemet app_scaffold
+          cd app_scaffold
+
+          # Copy user code files over scaffold
+          cp -f ../user_repo/pubspec.yaml .
+          rm -rf lib/*
+          cp -rf ../user_repo/lib/* ./lib/
+
+          # Inject required permissions and queries into AndroidManifest.xml
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CONTACTS" />\n    <queries>\n        <intent>\n            <action android:name="android.intent.action.DIAL" />\n            <data android:scheme="tel" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
+
+          # Set proper minimum Android SDK level
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+
+          # Download dependencies and compile APK
+          flutter pub get
+          flutter build apk --release
+
+          # Prepare output folder
+          mkdir -p ../dist
+          cp build/app/outputs/flutter-apk/app-release.apk ../dist/WeMet-v1.0.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: WeMet-Installable-APK
+          path: dist/WeMet-v1.0.apk
