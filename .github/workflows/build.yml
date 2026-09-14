@@ -26,32 +26,25 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Scaffold Clean Flutter App
+      - name: Build APK
         run: |
-          set -e
-          # 1. Create clean official scaffold
-          flutter create --org com.example --project-name wemet app_scaffold
+          # 1. Create a clean Flutter project using standard Java android template
+          flutter create --org com.example --project-name wemet -a java app_scaffold
           cd app_scaffold
 
-          # 2. Copy user code
+          # 2. Copy your project files over
           cp -f ../user_repo/pubspec.yaml .
           rm -rf lib/*
           cp -rf ../user_repo/lib/* ./lib/
 
-          # 3. Add Android permissions to AndroidManifest.xml
+          # 3. Add Android Contacts and Phone permissions
           sed -i '/<application/i \    <uses-permission android:name="android.permission.READ_CONTACTS" />\n    <queries>\n        <intent>\n            <action android:name="android.intent.action.DIAL" />\n            <data android:scheme="tel" />\n        </intent>\n        <intent>\n            <action android:name="android.intent.action.VIEW" />\n            <data android:scheme="https" />\n        </intent>\n    </queries>' android/app/src/main/AndroidManifest.xml
 
-          # 4. Set compile and target SDK to 34 (required for modern contact plugins)
-          find android -name "build.gradle*" -exec sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' {} + || true
-          find android -name "build.gradle*" -exec sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' {} + || true
-          find android -name "build.gradle*" -exec sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' {} + || true
-          find android -name "build.gradle*" -exec sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' {} + || true
-
-          # 5. Fetch dependencies & build APK
+          # 4. Fetch packages and compile release APK
           flutter pub get
           flutter build apk --release
 
-          # 6. Prepare download artifact
+          # 5. Export output artifact
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-release.apk ../dist/WeMet-v1.0.apk
 
